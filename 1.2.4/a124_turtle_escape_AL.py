@@ -118,8 +118,18 @@ def update_timer():
 def draw_spiral_maze():
     """
     Draws a spiral maze with randomly placed doors and barriers.
-    Solid exterior walls prevent early escape.
+    Solid exterior walls prevent early escape. Uses validated geometry
+    (no while-loops) and disables animation for instant drawing.
     """
+    # ---- performance: draw off-screen, then show once ----
+    screen.tracer(False)
+
+    # geometry constants
+    DOOR_W   = PATH_WIDTH * 2      # door opening along the wall
+    SEP      = PATH_WIDTH * 2      # min separation between door and barrier
+    MARGIN   = PATH_WIDTH          # keep features away from corners
+    BAR_H    = PATH_WIDTH * 2      # barrier height (perpendicular)
+
     # Start near the center so the spiral grows out nicely
     start_offset = PATH_WIDTH / 2
     maze_painter.penup()
@@ -127,70 +137,96 @@ def draw_spiral_maze():
     maze_painter.setheading(0)
     maze_painter.pendown()
     
-    length = PATH_WIDTH  # first segment length
-    segments = NUM_WALLS * 4 + 1   # enough segments to create NUM_WALLS of growth and a tail
-    
+    length = PATH_WIDTH                     # first segment length
+    segments = NUM_WALLS * 4 + 1            # sides to draw (plus tail)
+    last_solid_start = (NUM_WALLS - 1) * 4  # last "ring" is solid
+
     for k in range(segments):
-        # For exterior walls (last iteration), don't add doors - solid walls
-        if k >= (NUM_WALLS - 1) * 4:
-            # Draw solid wall for exterior
+        # Exterior ring: draw solid wall (no openings)
+        if k >= last_solid_start:
             maze_painter.forward(length)
-        elif k < 8:  # First 2 walls (8 segments)
-            # Draw simple wall with door
-            maze_painter.forward(10)
-            maze_painter.penup()
-            maze_painter.forward(PATH_WIDTH * 2)
-            maze_painter.pendown()
-            remaining_length = length - 10 - (PATH_WIDTH * 2)
-            maze_painter.forward(remaining_length)
+
         else:
-            # For later segments, add doors and barriers
-            # Generate random positions for door and barrier
-            # Ensure they're not too close to the beginning or end of the wall
-            # Make sure we have enough space for doors and barriers
-            min_pos = PATH_WIDTH * 2
-            max_pos = max(length - PATH_WIDTH * 2, min_pos + PATH_WIDTH * 2)
-            
-            door = random.randint(min_pos, max_pos)
-            barrier = random.randint(min_pos, max_pos)
-            
-            # Ensure door and barrier don't overlap
-            while abs(door - barrier) < PATH_WIDTH * 2:
-                barrier = random.randint(min_pos, max_pos)
-            
-            # Only add barriers for walls 3 and beyond
-            if k >= 12:  # 3 walls * 4 sides = 12 segments
-                # Determine which comes first: door or barrier
-                if door < barrier:
-                    # Door comes first
-                    draw_wall_segment(door)
-                    draw_door()
-                    draw_wall_segment(barrier - door - (PATH_WIDTH * 2))
-                    draw_barrier()
-                    remaining_length = length - barrier
-                    draw_wall_segment(remaining_length)
-                else:
-                    # Barrier comes first
-                    draw_wall_segment(barrier)
-                    draw_barrier()
-                    draw_wall_segment(door - barrier)
-                    draw_door()
-                    remaining_length = length - door - (PATH_WIDTH * 2)
-                    draw_wall_segment(remaining_length)
+            usable = length - 2 * MARGIN  # space available for features on this wall
+
+            # If wall is too short to place anything safely, just draw it
+            if usable <= 0:
+                maze_painter.forward(length)
+
             else:
-                # For first 3 walls, only draw door
-                draw_wall_segment(door)
-                draw_door()
-                remaining_length = length - door - (PATH_WIDTH * 2)
-                draw_wall_segment(remaining_length)
-        
+                # Door fits only if usable >= DOOR_W
+                if usable < DOOR_W:
+                    maze_painter.forward(length)
+                else:
+                    # Door start ∈ [MARGIN, MARGIN + usable - DOOR_W]
+                    door_lo = MARGIN
+                    door_hi = MARGIN + usable - DOOR_W
+                    door = random.randint(int(door_lo), int(door_hi))
+
+                    # Add barriers from the 3rd wall onward (k >= 12),
+                    # but only if there is *enough* room for door + separation.
+                    have_barrier = (k >= 12 and usable >= DOOR_W + SEP)
+
+                    if have_barrier:
+                        # Choose a side where barrier can satisfy separation
+                        left_span  = door - MARGIN
+                        right_span = (MARGIN + usable) - (door + DOOR_W)
+                        choices = []
+                        if left_span  >= SEP: choices.append("left")
+                        if right_span >= SEP: choices.append("right")
+
+                        # If neither side can satisfy, fall back to door only
+                        if not choices:
+                            # draw: to door → door → rest
+                            maze_painter.forward(door)
+                            maze_painter.penup(); maze_painter.forward(DOOR_W); maze_painter.pendown()
+                            maze_painter.forward(length - (door + DOOR_W))
+                        else:
+                            side = random.choice(choices)
+                            if side == "left":
+                                barrier = random.randint(int(MARGIN), int(door - SEP))
+                                # to barrier
+                                maze_painter.forward(barrier)
+                                # draw barrier
+                                maze_painter.left(90); maze_painter.forward(BAR_H)
+                                maze_painter.back(BAR_H); maze_painter.right(90)
+                                # to door
+                                maze_painter.forward(door - barrier)
+                                # door
+                                maze_painter.penup(); maze_painter.forward(DOOR_W); maze_painter.pendown()
+                                # rest
+                                maze_painter.forward(length - (door + DOOR_W))
+                            else:
+                                barrier = random.randint(int(door + DOOR_W + SEP),
+                                                         int(MARGIN + usable))
+                                # to door
+                                maze_painter.forward(door)
+                                # door
+                                maze_painter.penup(); maze_painter.forward(DOOR_W); maze_painter.pendown()
+                                # to barrier
+                                maze_painter.forward(barrier - (door + DOOR_W))
+                                # draw barrier
+                                maze_painter.left(90); maze_painter.forward(BAR_H)
+                                maze_painter.back(BAR_H); maze_painter.right(90)
+                                # rest
+                                maze_painter.forward(length - barrier)
+                    else:
+                        # Early or cramped walls: door only
+                        maze_painter.forward(door)
+                        maze_painter.penup(); maze_painter.forward(DOOR_W); maze_painter.pendown()
+                        maze_painter.forward(length - (door + DOOR_W))
+
         maze_painter.left(90)
         # increase length after every 2 sides to keep spacing even
         if k % 2 == 1:
             length += PATH_WIDTH
-    
+
     # Add the final line extending from the outermost square
     maze_painter.forward(PATH_WIDTH)
+
+    # ---- show everything at once ----
+    screen.tracer(True)
+    screen.update()
 
 def restart_game():
     """Restarts the game by resetting the turtle position and timer."""
