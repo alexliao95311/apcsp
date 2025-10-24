@@ -43,33 +43,36 @@ def draw_spiral_maze_with_doors():
     Each door is placed 10 pixels from the start of each wall side.
     The door opening is twice the path width to match the path size.
     """
-    # Start from the center and work outward
-    current_size = PATH_WIDTH
+    # Start near the center so the spiral grows out nicely
+    start_offset = PATH_WIDTH / 2
+    maze_painter.penup()
+    maze_painter.goto(-start_offset, -start_offset)
+    maze_painter.setheading(0)
+    maze_painter.pendown()
     
-    # Draw the spiral using a for loop
-    for i in range(NUM_WALLS):
-        # Draw one complete square for each wall
-        for side in range(4):
-            # Draw first part of wall (10 pixels before door)
-            maze_painter.forward(10)
-            
-            # Create door opening
-            maze_painter.penup()  # Lift pen to stop drawing
-            maze_painter.forward(PATH_WIDTH * 2)  # Move forward without drawing (door opening)
-            maze_painter.pendown()  # Put pen down to continue drawing
-            
-            # Draw the rest of the wall
-            remaining_length = current_size - 10 - (PATH_WIDTH * 2)
-            maze_painter.forward(remaining_length)
-            
-            # Turn to next side of the square
-            maze_painter.left(90)
+    length = PATH_WIDTH  # first segment length
+    segments = NUM_WALLS * 4 + 1   # enough segments to create NUM_WALLS of growth and a tail
+    
+    for k in range(segments):
+        # Draw first part of wall (10 pixels before door)
+        maze_painter.forward(10)
         
-        # After each square, increase the size for the next iteration
-        current_size += PATH_WIDTH
+        # Create door opening
+        maze_painter.penup()  # Lift pen to stop drawing
+        maze_painter.forward(PATH_WIDTH * 2)  # Move forward without drawing (door opening)
+        maze_painter.pendown()  # Put pen down to continue drawing
         
-        # Turn to create the spiral pattern
+        # Draw the rest of the wall
+        remaining_length = length - 10 - (PATH_WIDTH * 2)
+        maze_painter.forward(remaining_length)
+        
         maze_painter.left(90)
+        # increase length after every 2 sides to keep spacing even
+        if k % 2 == 1:
+            length += PATH_WIDTH
+    
+    # Add the final line extending from the outermost square
+    maze_painter.forward(PATH_WIDTH)
 
 # Draw the maze with doors
 draw_spiral_maze_with_doors()
