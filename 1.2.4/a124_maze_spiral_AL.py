@@ -7,10 +7,10 @@ The maze consists of concentric squares that create a spiral pattern.
 
 Pseudocode for square spiral:
 1. Decide on number of walls for the spiral
-2. Start from center and work outward
-3. Use for loop with range function since we know iteration count
-4. On each iteration: turn turtle and grow wall size
-5. Include mainloop to control screen
+2. Start from center and work out
+3. Use a for loop and the range function
+4. On each iteration, turn your turtle and grow the size of the wall
+5. Don't forget to include mainloop to control the screen
 """
 
 import turtle
@@ -34,28 +34,28 @@ screen.bgcolor("white")
 
 def draw_spiral_maze():
     """
-    Draws a spiral maze using concentric squares.
-    Each iteration creates a square that's larger than the previous one.
-    The squares are rotated to create a spiral effect.
+    Draws a spiral maze using a continuous path.
+    Creates a proper spiral by drawing each wall segment sequentially.
     """
-    # Start from the center and work outward
-    current_size = PATH_WIDTH
+    # Start near the center so the spiral grows out nicely
+    start_offset = PATH_WIDTH / 2
+    maze_painter.penup()
+    maze_painter.goto(-start_offset, -start_offset)
+    maze_painter.setheading(0)
+    maze_painter.pendown()
     
-    # Draw the spiral using a for loop
-    # We know how many iterations we need, so for loop is appropriate
-    for i in range(NUM_WALLS):
-        # Draw one complete square for each wall
-        for side in range(4):
-            maze_painter.forward(current_size)
-            maze_painter.left(90)
-        
-        # After each square, increase the size for the next iteration
-        # This creates the growing spiral effect
-        current_size += PATH_WIDTH
-        
-        # Turn to create the spiral pattern
-        # This rotation creates the offset between squares
+    length = PATH_WIDTH  # first segment length
+    segments = NUM_WALLS * 4 + 1   # enough segments to create NUM_WALLS of growth and a tail
+    
+    for k in range(segments):
+        maze_painter.forward(length)
         maze_painter.left(90)
+        # increase length after every 2 sides to keep spacing even
+        if k % 2 == 1:
+            length += PATH_WIDTH
+    
+    # Add the final line extending from the outermost square
+    maze_painter.forward(PATH_WIDTH)
 
 # Draw the maze
 draw_spiral_maze()
