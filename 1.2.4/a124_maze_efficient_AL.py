@@ -28,7 +28,7 @@ import random
 
 # Configuration variables - these control the maze appearance
 NUM_WALLS = 8  # Number of walls in the spiral
-PATH_WIDTH = 20  # Distance between walls (width of the path)
+PATH_WIDTH = 40  # Distance between walls (width of the path)
 WALL_COLOR = "black"  # Color for the maze walls
 
 # Create the turtle for drawing the maze
@@ -75,85 +75,89 @@ def draw_spiral_maze_efficient():
     Draws a spiral maze with randomly placed doors and barriers using functions.
     Eliminates code duplication by using reusable functions for common operations.
     """
-    # Start from the center and work outward
-    current_size = PATH_WIDTH
-    
-    # Draw the spiral using a for loop
-    for i in range(NUM_WALLS):
-        # Calculate wall length for this iteration
-        wall_len = current_size
-        
-        # Draw one complete square for each wall
-        for side in range(4):
-            # Generate random positions for door and barrier
-            # Ensure they're not too close to the beginning or end of the wall
-            door = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-            barrier = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-            
-            # Ensure door and barrier don't overlap
-            # If they're too close, generate new random positions
-            while abs(door - barrier) < PATH_WIDTH * 2:
-                # Regenerate barrier position to avoid overlap
-                barrier = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-            
-            # Only add barriers for walls 4 and beyond (avoid drawing errors on small walls)
-            if i >= 4:
-                # Determine which comes first: door or barrier
-                if door < barrier:
-                    # Door comes first
-                    # Draw wall segment before door
-                    draw_wall_segment(door)
-                    
-                    # Draw door opening using function
-                    draw_door()
-                    
-                    # Draw wall segment between door and barrier
-                    draw_wall_segment(barrier - door - (PATH_WIDTH * 2))
-                    
-                    # Draw barrier using function
-                    draw_barrier()
-                    
-                    # Draw remaining wall segment
-                    remaining_length = wall_len - barrier
-                    draw_wall_segment(remaining_length)
-                    
-                else:
-                    # Barrier comes first
-                    # Draw wall segment before barrier
-                    draw_wall_segment(barrier)
-                    
-                    # Draw barrier using function
-                    draw_barrier()
-                    
-                    # Draw wall segment between barrier and door
-                    draw_wall_segment(door - barrier)
-                    
-                    # Draw door opening using function
-                    draw_door()
-                    
-                    # Draw remaining wall segment
-                    remaining_length = wall_len - door - (PATH_WIDTH * 2)
-                    draw_wall_segment(remaining_length)
+    screen.tracer(False)
+
+    # geometry constants
+    DOOR_WIDTH = PATH_WIDTH * 2
+    SEP        = PATH_WIDTH * 2      # min distance door↔barrier
+    BARRIER_H  = PATH_WIDTH * 2
+    MARGIN     = PATH_WIDTH          # keep features away from corners
+
+    # start near center
+    start_offset = PATH_WIDTH / 2
+    maze_painter.penup()
+    maze_painter.goto(-start_offset, -start_offset)
+    maze_painter.setheading(0)
+    maze_painter.pendown()
+
+    length   = PATH_WIDTH
+    segments = NUM_WALLS * 4 + 1
+
+    for k in range(segments):
+        usable = length - 2 * MARGIN             # space available for features
+        have_barrier = (k >= 16)                 # don't try barriers on tiny walls
+
+        if usable <= 0:
+            # wall too short for any feature
+            maze_painter.forward(length)
+
+        else:
+            # --- always try a door if it fits ---
+            if usable < DOOR_WIDTH:
+                # no room for a door; just draw the wall
+                maze_painter.forward(length)
             else:
-                # For first 4 walls, only draw door (no barrier to avoid errors)
-                # Draw wall segment before door
-                draw_wall_segment(door)
-                
-                # Draw door opening using function
-                draw_door()
-                
-                # Draw remaining wall segment
-                remaining_length = wall_len - door - (PATH_WIDTH * 2)
-                draw_wall_segment(remaining_length)
-            
-            # Turn to next side of the square
-            maze_painter.left(90)
-        
-        # After each square, increase the size for the next iteration
-        current_size += PATH_WIDTH
-        
-        # Turn to create the spiral pattern
+                # door start is clamped so the  door fits entirely
+                door_lo = MARGIN
+                door_hi = MARGIN + usable - DOOR_WIDTH
+                door = random.randint(door_lo, int(door_hi))
+
+                if have_barrier and usable >= DOOR_WIDTH + SEP:
+                    # pick a side for the barrier that can satisfy separation
+                    left_span  = door - MARGIN
+                    right_span = (MARGIN + usable) - (door + DOOR_WIDTH)
+                    choices = []
+                    if left_span  >= SEP: choices.append("left")
+                    if right_span >= SEP: choices.append("right")
+
+                    if choices:
+                        side = random.choice(choices)
+                        if side == "left":
+                            barrier = random.randint(MARGIN, int(door - SEP))
+                            # draw: to barrier → barrier → to door → door → rest
+                            maze_painter.forward(barrier)
+                            maze_painter.left(90); maze_painter.forward(BARRIER_H)
+                            maze_painter.back(BARRIER_H); maze_painter.right(90)
+                            maze_painter.forward(door - barrier)
+                            maze_painter.penup(); maze_painter.forward(DOOR_WIDTH); maze_painter.pendown()
+                            maze_painter.forward(length - (door + DOOR_WIDTH))
+                        else:
+                            barrier = random.randint(int(door + DOOR_WIDTH + SEP),
+                                                     int(MARGIN + usable))
+                            # draw: to door → door → to barrier → barrier → rest
+                            maze_painter.forward(door)
+                            maze_painter.penup(); maze_painter.forward(DOOR_WIDTH); maze_painter.pendown()
+                            maze_painter.forward(barrier - (door + DOOR_WIDTH))
+                            maze_painter.left(90); maze_painter.forward(BARRIER_H)
+                            maze_painter.back(BARRIER_H); maze_painter.right(90)
+                            maze_painter.forward(length - barrier)
+                    else:
+                        # no side can satisfy SEP → just draw a door
+                        maze_painter.forward(door)
+                        maze_painter.penup(); maze_painter.forward(DOOR_WIDTH); maze_painter.pendown()
+                        maze_painter.forward(length - (door + DOOR_WIDTH))
+                else:
+                    # not enough total space for door+barrier → just door
+                    maze_painter.forward(door)
+                    maze_painter.penup(); maze_painter.forward(DOOR_WIDTH); maze_painter.pendown()
+                    maze_painter.forward(length - (door + DOOR_WIDTH))
+
         maze_painter.left(90)
+        if k % 2 == 1:
+            length += PATH_WIDTH
+
+    maze_painter.forward(PATH_WIDTH)
+    screen.tracer(True)
 
 # Draw the maze with random doors and barriers using efficient functions
 draw_spiral_maze_efficient()

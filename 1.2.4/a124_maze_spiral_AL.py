@@ -18,7 +18,7 @@ import turtle
 # Configuration variables - these control the maze appearance
 # Avoiding "magic numbers" by using named variables
 NUM_WALLS = 8  # Number of walls in the spiral
-PATH_WIDTH = 20  # Distance between walls (width of the path)
+PATH_WIDTH = 40  # Distance between walls (width of the path)
 WALL_COLOR = "black"  # Color for the maze walls
 
 # Create the turtle for drawing the maze

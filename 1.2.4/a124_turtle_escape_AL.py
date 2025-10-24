@@ -43,7 +43,7 @@ import time
 
 # Configuration variables - these control the maze appearance
 NUM_WALLS = 6  # Number of walls in the spiral
-PATH_WIDTH = 30  # Distance between walls (width of the path)
+PATH_WIDTH = 50  # Distance between walls (width of the path)
 WALL_COLOR = "black"  # Color for the maze walls
 RUNNER_COLOR = "red"  # Color for the maze runner
 RUNNER_SPEED = 15  # Base speed of the maze runner
@@ -120,86 +120,87 @@ def draw_spiral_maze():
     Draws a spiral maze with randomly placed doors and barriers.
     Solid exterior walls prevent early escape.
     """
-    # Start from the center and work outward
-    current_size = PATH_WIDTH
+    # Start near the center so the spiral grows out nicely
+    start_offset = PATH_WIDTH / 2
+    maze_painter.penup()
+    maze_painter.goto(-start_offset, -start_offset)
+    maze_painter.setheading(0)
+    maze_painter.pendown()
     
-    # Draw the spiral using a for loop
-    for i in range(NUM_WALLS):
-        # Calculate wall length for this iteration
-        wall_len = current_size
-        
-        # Draw one complete square for each wall
-        for side in range(4):
-            # For exterior walls (last iteration), don't add doors - solid walls
-            if i == NUM_WALLS - 1:
-                # Draw solid wall for exterior
-                maze_painter.forward(wall_len)
-            else:
-                # Generate random positions for door and barrier
-                # Ensure they're not too close to the beginning or end of the wall
-                door = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-                barrier = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-                
-                # Ensure door and barrier don't overlap
-                while abs(door - barrier) < PATH_WIDTH * 2:
-                    barrier = random.randint(PATH_WIDTH * 2, wall_len - PATH_WIDTH * 2)
-                
-                # Only add barriers for walls 3 and beyond
-                if i >= 3:
-                    # Determine which comes first: door or barrier
-                    if door < barrier:
-                        # Door comes first
-                        draw_wall_segment(door)
-                        draw_door()
-                        draw_wall_segment(barrier - door - (PATH_WIDTH * 2))
-                        draw_barrier()
-                        remaining_length = wall_len - barrier
-                        draw_wall_segment(remaining_length)
-                    else:
-                        # Barrier comes first
-                        draw_wall_segment(barrier)
-                        draw_barrier()
-                        draw_wall_segment(door - barrier)
-                        draw_door()
-                        remaining_length = wall_len - door - (PATH_WIDTH * 2)
-                        draw_wall_segment(remaining_length)
-                else:
-                    # For first 3 walls, only draw door
+    length = PATH_WIDTH  # first segment length
+    segments = NUM_WALLS * 4 + 1   # enough segments to create NUM_WALLS of growth and a tail
+    
+    for k in range(segments):
+        # For exterior walls (last iteration), don't add doors - solid walls
+        if k >= (NUM_WALLS - 1) * 4:
+            # Draw solid wall for exterior
+            maze_painter.forward(length)
+        elif k < 8:  # First 2 walls (8 segments)
+            # Draw simple wall with door
+            maze_painter.forward(10)
+            maze_painter.penup()
+            maze_painter.forward(PATH_WIDTH * 2)
+            maze_painter.pendown()
+            remaining_length = length - 10 - (PATH_WIDTH * 2)
+            maze_painter.forward(remaining_length)
+        else:
+            # For later segments, add doors and barriers
+            # Generate random positions for door and barrier
+            # Ensure they're not too close to the beginning or end of the wall
+            # Make sure we have enough space for doors and barriers
+            min_pos = PATH_WIDTH * 2
+            max_pos = max(length - PATH_WIDTH * 2, min_pos + PATH_WIDTH * 2)
+            
+            door = random.randint(min_pos, max_pos)
+            barrier = random.randint(min_pos, max_pos)
+            
+            # Ensure door and barrier don't overlap
+            while abs(door - barrier) < PATH_WIDTH * 2:
+                barrier = random.randint(min_pos, max_pos)
+            
+            # Only add barriers for walls 3 and beyond
+            if k >= 12:  # 3 walls * 4 sides = 12 segments
+                # Determine which comes first: door or barrier
+                if door < barrier:
+                    # Door comes first
                     draw_wall_segment(door)
                     draw_door()
-                    remaining_length = wall_len - door - (PATH_WIDTH * 2)
+                    draw_wall_segment(barrier - door - (PATH_WIDTH * 2))
+                    draw_barrier()
+                    remaining_length = length - barrier
                     draw_wall_segment(remaining_length)
-            
-            # Turn to next side of the square
-            maze_painter.left(90)
+                else:
+                    # Barrier comes first
+                    draw_wall_segment(barrier)
+                    draw_barrier()
+                    draw_wall_segment(door - barrier)
+                    draw_door()
+                    remaining_length = length - door - (PATH_WIDTH * 2)
+                    draw_wall_segment(remaining_length)
+            else:
+                # For first 3 walls, only draw door
+                draw_wall_segment(door)
+                draw_door()
+                remaining_length = length - door - (PATH_WIDTH * 2)
+                draw_wall_segment(remaining_length)
         
-        # After each square, increase the size for the next iteration
-        current_size += PATH_WIDTH
-        
-        # Turn to create the spiral pattern
         maze_painter.left(90)
+        # increase length after every 2 sides to keep spacing even
+        if k % 2 == 1:
+            length += PATH_WIDTH
+    
+    # Add the final line extending from the outermost square
+    maze_painter.forward(PATH_WIDTH)
 
 def restart_game():
     """Restarts the game by resetting the turtle position and timer."""
     global game_start_time, game_running
     
-    # Clear the screen and redraw the maze
-    screen.clear()
-    screen.bgcolor("lightblue")
-    
     # Reset game state
     game_running = True
     game_start_time = time.time()
     
-    # Redraw the maze
-    maze_painter = turtle.Turtle()
-    maze_painter.speed(0)
-    maze_painter.color(WALL_COLOR)
-    maze_painter.pensize(2)
-    draw_spiral_maze()
-    maze_painter.hideturtle()
-    
-    # Reset the maze runner
+    # Clear the maze runner's path
     maze_runner.clear()
     maze_runner.penup()
     maze_runner.goto(PATH_WIDTH, 0)
