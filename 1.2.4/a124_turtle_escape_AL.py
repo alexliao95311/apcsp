@@ -2,24 +2,32 @@
 AP CSP 1.2.4 - Turtle Escape Maze Game
 Student: Alex Liao
 
-This is the final complete maze program with customizable features.
-The turtle must navigate through a randomly generated maze to escape.
+Pseudocode for square spiral:
+1. Decide on number of walls for the spiral
+2. Start from center and work out
+3. Use a for loop and the range function
+4. On each iteration, turn your turtle and grow the size of the wall
+5. Don't forget to include mainloop to control the screen
 
-Customizations implemented:
-- Solid exterior walls (no doors on outer walls)
-- Timer functionality to track escape time
-- Restart game feature
-- Variable turtle speed controls
-- Improved maze generation with better navigation
+Pseudocode for adding doors:
+1. Draw part of the wall (10 pixels)
+2. Lift the pen to create an opening
+3. Move forward by twice the path width (door opening size)
+4. Put the pen down to continue drawing the wall
+5. Complete the rest of the wall
 
-Program Description:
-This program creates a spiral maze with randomly placed doors and barriers,
-then allows the player to control a turtle to navigate through the maze.
-The goal is to escape the maze as quickly as possible. The game includes
-a timer to track performance and the ability to restart for multiple attempts.
-The maze features solid exterior walls to prevent early escape and provides
-a challenging navigation experience with proper door and barrier placement.
 
+Pseudocode for adding barriers:
+1. Draw part of the wall (10 pixels)
+2. Create door opening (lift pen, move forward, put pen down)
+3. Draw more wall (40 pixels past the door)
+4. Turn left 90 degrees to draw perpendicular barrier
+5. Draw barrier wall (twice the path width long)
+6. Go back to original position
+7. Turn right 90 degrees to continue original wall
+8. Complete the rest of the wall
+
+Conclusion Questoins
 Question 1: Why is pseudocode useful?
 Answer: Pseudocode is useful from both reading and writing perspectives because:
 - Reading: It helps understand the logic and flow of algorithms before implementation
@@ -35,6 +43,47 @@ functions relate to the main maze algorithm by being called in sequence based on
 their random positions - the algorithm determines which comes first using selection
 logic, then draws wall segments, doors, and barriers in the correct order to avoid
 backtracking and ensure proper maze structure.
+
+Other Questoins
+Question: Why do we need to ensure door and barrier don't overlap?
+Answer: If a barrier renders inside a door opening, it defeats the purpose
+of the door and creates visual confusion. The barrier should block the path,
+not be inside an opening.
+
+Question: Why is it important to draw door and barrier in the correct order?
+Answer: Drawing them in order prevents the turtle from having to backtrack
+and redraw portions of the wall, which is inefficient and can cause visual
+artifacts. We want to draw each segment only once in the correct sequence.
+
+Question: Why is code duplication considered poor programming practice?
+Answer: Code duplication makes programs harder to maintain, increases the
+chance of bugs, and violates the DRY (Don't Repeat Yourself) principle.
+When you need to fix a bug or make a change, you have to remember to
+update it in multiple places, which is error-prone.
+
+Question: How do functions with parameters help eliminate redundancy?
+Answer: Functions allow us to write an algorithm once and reuse it with
+different values (parameters). Instead of writing similar code multiple
+times with different values, we create one function and call it with
+the appropriate parameters each time.
+
+Question: Why is the door opening twice the path width?
+Answer: The door opening should match the width of the path between walls.
+Since paths are created by the space between parallel walls, and each wall
+grows by one path width, the total path width is effectively twice the
+increment value. This ensures the door is wide enough for navigation.
+
+Question: Why is the barrier wall length twice the path width?
+Answer: The barrier needs to span the entire width of the path. Since each wall
+increases by one path width, and we have two parallel walls creating the path,
+the total path width is effectively twice the path width increment. The barrier
+must block the entire path, so it needs to be twice the path width long.
+
+Question: Why not start the for loop at 4 instead of using an if statement?
+Answer: Starting the for loop at 4 would mean skipping the first 4 iterations
+entirely, which would prevent the walls from growing and scaling properly.
+The first few walls are essential for establishing the maze structure and size.
+We need the full sequence of wall growth to maintain the proper spiral geometry.
 """
 
 import turtle
