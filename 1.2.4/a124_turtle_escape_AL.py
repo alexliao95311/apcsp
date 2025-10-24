@@ -16,7 +16,6 @@ Pseudocode for adding doors:
 4. Put the pen down to continue drawing the wall
 5. Complete the rest of the wall
 
-test push
 Pseudocode for adding barriers:
 1. Draw part of the wall (10 pixels)
 2. Create door opening (lift pen, move forward, put pen down)
