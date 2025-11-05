@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 # Initialize Pygame
 pygame.init()
@@ -20,13 +21,20 @@ YELLOW = (255, 255, 0)
 # Gun/Player constants
 GUN_WIDTH = 60
 GUN_HEIGHT = 40
-GUN_SPEED = 5
+GUN_SPEED = 15
 
 # Bullet constants
 BULLET_WIDTH = 5
 BULLET_HEIGHT = 10
 BULLET_SPEED = 7
 BULLET_COLOR = YELLOW
+
+# Asteroid constants
+ASTEROID_WIDTH = 40
+ASTEROID_HEIGHT = 40
+ASTEROID_SPEED = 3
+ASTEROID_COLOR = RED
+ASTEROID_SPAWN_RATE = 60  # Spawn every 60 frames (1 second at 60 FPS)
 
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -93,8 +101,52 @@ class Bullet:
 # Create gun instance
 gun = Gun()
 
+# Asteroid class
+class Asteroid:
+    def __init__(self, x, y):
+        self.width = ASTEROID_WIDTH
+        self.height = ASTEROID_HEIGHT
+        self.x = x
+        self.y = y
+        self.speed = ASTEROID_SPEED
+        self.color = ASTEROID_COLOR
+        self.active = True
+    
+    def update(self):
+        """Move asteroid down the screen"""
+        self.y += self.speed
+        # Mark asteroid as inactive if it goes past the bottom
+        if self.y > SCREEN_HEIGHT:
+            self.active = False
+    
+    def draw(self, screen):
+        """Draw the asteroid as a rectangle"""
+        if self.active:
+            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+    
+    def get_rect(self):
+        """Get pygame.Rect for collision detection"""
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+# Asteroid spawner function
+def spawn_asteroid():
+    """Spawn an asteroid at a random x position at the top of the screen"""
+    x = random.randint(0, SCREEN_WIDTH - ASTEROID_WIDTH)
+    return Asteroid(x, -ASTEROID_HEIGHT)
+
+# Collision detection function
+def check_bullet_asteroid_collision(bullet, asteroid):
+    """Check if bullet and asteroid rectangles overlap"""
+    bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
+    asteroid_rect = asteroid.get_rect()
+    return bullet_rect.colliderect(asteroid_rect)
+
 # Bullet management
 bullets = []
+
+# Asteroid management
+asteroids = []
+asteroid_spawn_timer = 0
 
 # Main game loop
 running = True
@@ -116,6 +168,12 @@ while running:
     if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
         gun.move_right()
     
+    # Spawn asteroids
+    asteroid_spawn_timer += 1
+    if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
+        asteroids.append(spawn_asteroid())
+        asteroid_spawn_timer = 0
+    
     # Fill the screen with black background
     screen.fill(BLACK)
     
@@ -130,6 +188,27 @@ while running:
         # Remove inactive bullets
         if not bullet.active:
             bullets.remove(bullet)
+    
+    # Update and draw asteroids
+    for asteroid in asteroids[:]:  # Use slice to avoid modification during iteration
+        asteroid.update()
+        asteroid.draw(screen)
+        # Remove inactive asteroids (hit ground)
+        if not asteroid.active:
+            asteroids.remove(asteroid)
+            print("Asteroid hit the ground!")  # Debug message - can be removed later
+    
+    # Check bullet-asteroid collisions
+    for bullet in bullets[:]:
+        for asteroid in asteroids[:]:
+            if bullet.active and asteroid.active and check_bullet_asteroid_collision(bullet, asteroid):
+                # Remove both bullet and asteroid on collision
+                bullet.active = False
+                asteroid.active = False
+                bullets.remove(bullet)
+                asteroids.remove(asteroid)
+                print("Asteroid destroyed!")  # Debug message - can be removed later
+                break  # Break inner loop since bullet is destroyed
     
     # Update the display
     pygame.display.flip()
