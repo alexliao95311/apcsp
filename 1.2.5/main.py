@@ -21,7 +21,7 @@ YELLOW = (255, 255, 0)
 # Gun/Player constants
 GUN_WIDTH = 60
 GUN_HEIGHT = 40
-GUN_SPEED = 15
+GUN_SPEED = 10
 
 # Bullet constants
 BULLET_WIDTH = 5
@@ -36,12 +36,20 @@ ASTEROID_SPEED = 3
 ASTEROID_COLOR = RED
 ASTEROID_SPAWN_RATE = 60  # Spawn every 60 frames (1 second at 60 FPS)
 
+# Game constants
+STARTING_LIVES = 3
+POINTS_PER_ASTEROID = 10
+
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Asteroids Shooter Game")
 
 # Clock for controlling frame rate
 clock = pygame.time.Clock()
+
+# Initialize font for text display
+font = pygame.font.Font(None, 36)
+game_over_font = pygame.font.Font(None, 72)
 
 # Gun/Player class
 class Gun:
@@ -141,12 +149,63 @@ def check_bullet_asteroid_collision(bullet, asteroid):
     asteroid_rect = asteroid.get_rect()
     return bullet_rect.colliderect(asteroid_rect)
 
+# UI display functions
+def draw_score(screen, score):
+    """Draw the current score on screen"""
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+
+def draw_lives(screen, lives):
+    """Draw the current lives on screen"""
+    lives_text = font.render(f"Lives: {lives}", True, WHITE)
+    screen.blit(lives_text, (10, 50))
+
+def draw_game_over(screen, score):
+    """Draw game over screen with final score and restart instructions"""
+    # Semi-transparent overlay
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    overlay.set_alpha(128)
+    overlay.fill(BLACK)
+    screen.blit(overlay, (0, 0))
+    
+    # Game over text
+    game_over_text = game_over_font.render("GAME OVER", True, RED)
+    game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50))
+    screen.blit(game_over_text, game_over_rect)
+    
+    # Final score
+    final_score_text = font.render(f"Final Score: {score}", True, WHITE)
+    final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+    screen.blit(final_score_text, final_score_rect)
+    
+    # Restart instructions
+    restart_text = font.render("Press R to restart or ESC to quit", True, WHITE)
+    restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 50))
+    screen.blit(restart_text, restart_rect)
+
+def reset_game():
+    """Reset all game variables to start a new game"""
+    global score, lives, game_over, bullets, asteroids, asteroid_spawn_timer
+    score = 0
+    lives = STARTING_LIVES
+    game_over = False
+    bullets.clear()
+    asteroids.clear()
+    asteroid_spawn_timer = 0
+    # Reset gun position
+    gun.x = SCREEN_WIDTH // 2 - gun.width // 2
+
 # Bullet management
 bullets = []
 
 # Asteroid management
 asteroids = []
 asteroid_spawn_timer = 0
+
+# Game state variables
+score = 0
+lives = STARTING_LIVES
+game_over = False
 
 # Main game loop
 running = True
@@ -155,60 +214,84 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        # Handle spacebar for shooting (single press)
+        # Handle keyboard events
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                gun_center_x, gun_center_y = gun.get_gun_center()
-                bullets.append(Bullet(gun_center_x, gun_center_y))
+            if not game_over:
+                # Handle spacebar for shooting (single press)
+                if event.key == pygame.K_SPACE:
+                    gun_center_x, gun_center_y = gun.get_gun_center()
+                    bullets.append(Bullet(gun_center_x, gun_center_y))
+            else:
+                # Handle game over screen inputs
+                if event.key == pygame.K_r:
+                    reset_game()
+                elif event.key == pygame.K_ESCAPE:
+                    running = False
     
-    # Handle continuous keyboard input
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-        gun.move_left()
-    if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-        gun.move_right()
-    
-    # Spawn asteroids
-    asteroid_spawn_timer += 1
-    if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
-        asteroids.append(spawn_asteroid())
-        asteroid_spawn_timer = 0
+    # Only handle game input if not game over
+    if not game_over:
+        # Handle continuous keyboard input
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            gun.move_left()
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            gun.move_right()
+        
+        # Spawn asteroids
+        asteroid_spawn_timer += 1
+        if asteroid_spawn_timer >= ASTEROID_SPAWN_RATE:
+            asteroids.append(spawn_asteroid())
+            asteroid_spawn_timer = 0
     
     # Fill the screen with black background
     screen.fill(BLACK)
     
-    # Update and draw game objects
-    gun.update()
-    gun.draw(screen)
-    
-    # Update and draw bullets
-    for bullet in bullets[:]:  # Use slice to avoid modification during iteration
-        bullet.update()
-        bullet.draw(screen)
-        # Remove inactive bullets
-        if not bullet.active:
-            bullets.remove(bullet)
-    
-    # Update and draw asteroids
-    for asteroid in asteroids[:]:  # Use slice to avoid modification during iteration
-        asteroid.update()
-        asteroid.draw(screen)
-        # Remove inactive asteroids (hit ground)
-        if not asteroid.active:
-            asteroids.remove(asteroid)
-            print("Asteroid hit the ground!")  # Debug message - can be removed later
-    
-    # Check bullet-asteroid collisions
-    for bullet in bullets[:]:
-        for asteroid in asteroids[:]:
-            if bullet.active and asteroid.active and check_bullet_asteroid_collision(bullet, asteroid):
-                # Remove both bullet and asteroid on collision
-                bullet.active = False
-                asteroid.active = False
+    if not game_over:
+        # Update and draw game objects
+        gun.update()
+        gun.draw(screen)
+        
+        # Update and draw bullets
+        for bullet in bullets[:]:  # Use slice to avoid modification during iteration
+            bullet.update()
+            bullet.draw(screen)
+            # Remove inactive bullets
+            if not bullet.active:
                 bullets.remove(bullet)
+        
+        # Update and draw asteroids
+        for asteroid in asteroids[:]:  # Use slice to avoid modification during iteration
+            asteroid.update()
+            asteroid.draw(screen)
+            # Remove inactive asteroids (hit ground) and decrement lives
+            if not asteroid.active:
                 asteroids.remove(asteroid)
-                print("Asteroid destroyed!")  # Debug message - can be removed later
-                break  # Break inner loop since bullet is destroyed
+                lives -= 1
+                print(f"Asteroid hit the ground! Lives remaining: {lives}")
+                # Check if game over
+                if lives <= 0:
+                    game_over = True
+        
+        # Check bullet-asteroid collisions
+        for bullet in bullets[:]:
+            for asteroid in asteroids[:]:
+                if bullet.active and asteroid.active and check_bullet_asteroid_collision(bullet, asteroid):
+                    # Remove both bullet and asteroid on collision
+                    bullet.active = False
+                    asteroid.active = False
+                    bullets.remove(bullet)
+                    asteroids.remove(asteroid)
+                    # Increase score
+                    score += POINTS_PER_ASTEROID
+                    print(f"Asteroid destroyed! Score: {score}")
+                    break  # Break inner loop since bullet is destroyed
+        
+        # Draw UI elements
+        draw_score(screen, score)
+        draw_lives(screen, lives)
+    else:
+        # Draw game over screen
+        draw_game_over(screen, score)
     
     # Update the display
     pygame.display.flip()
