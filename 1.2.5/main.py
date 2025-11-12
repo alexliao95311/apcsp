@@ -30,15 +30,16 @@ BULLET_SPEED = 7
 BULLET_COLOR = YELLOW
 
 # Asteroid constants
-ASTEROID_WIDTH = 40
-ASTEROID_HEIGHT = 40
-ASTEROID_SPEED = 3
+ASTEROID_SIZES = [
+    {"width": 30, "height": 30, "speed": 4, "points": 15},  # Small asteroid
+    {"width": 40, "height": 40, "speed": 3, "points": 10},  # Medium asteroid
+    {"width": 60, "height": 60, "speed": 2, "points": 5},   # Large asteroid
+]
 ASTEROID_COLOR = RED
 ASTEROID_SPAWN_RATE = 60  # Spawn every 60 frames (1 second at 60 FPS)
 
 # Game constants
 STARTING_LIVES = 3
-POINTS_PER_ASTEROID = 10
 
 # Set up the game window
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -51,6 +52,32 @@ clock = pygame.time.Clock()
 font = pygame.font.Font(None, 36)
 game_over_font = pygame.font.Font(None, 72)
 
+# Load images
+def load_image(filename):
+    """Load and return an image, with error handling"""
+    try:
+        image = pygame.image.load(f"1.2.5/images/{filename}")
+        return image
+    except pygame.error:
+        print(f"Could not load image: {filename}")
+        return None
+
+# Load all game images
+spaceship_off_img = load_image("spaceship-off.png")
+spaceship_on_img = load_image("spaceship-on.png")
+missile_img = load_image("missile.png")
+rock_small_img = load_image("rock-small.png")
+rock_normal_img = load_image("rock-normal.png")
+rock_big_img = load_image("rock-big.png")
+
+# Scale images to appropriate sizes if needed
+if spaceship_off_img:
+    spaceship_off_img = pygame.transform.scale(spaceship_off_img, (GUN_WIDTH, GUN_HEIGHT))
+if spaceship_on_img:
+    spaceship_on_img = pygame.transform.scale(spaceship_on_img, (GUN_WIDTH, GUN_HEIGHT))
+if missile_img:
+    missile_img = pygame.transform.scale(missile_img, (BULLET_WIDTH, BULLET_HEIGHT))
+
 # Gun/Player class
 class Gun:
     def __init__(self):
@@ -60,20 +87,30 @@ class Gun:
         self.y = SCREEN_HEIGHT - self.height - 10  # Position near bottom
         self.speed = GUN_SPEED
         self.color = WHITE
+        self.is_moving = False  # Track if the spaceship is moving
     
     def draw(self, screen):
-        """Draw the gun as a rectangle"""
-        pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+        """Draw the gun using images"""
+        # Choose image based on movement state
+        if self.is_moving and spaceship_on_img:
+            screen.blit(spaceship_on_img, (self.x, self.y))
+        elif spaceship_off_img:
+            screen.blit(spaceship_off_img, (self.x, self.y))
+        else:
+            # Fallback to rectangle if images don't load
+            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
     
     def move_left(self):
         """Move gun to the left"""
         if self.x > 0:
             self.x -= self.speed
+            self.is_moving = True
     
     def move_right(self):
         """Move gun to the right"""
         if self.x < SCREEN_WIDTH - self.width:
             self.x += self.speed
+            self.is_moving = True
     
     def update(self):
         """Update gun state (for future use)"""
@@ -102,23 +139,42 @@ class Bullet:
             self.active = False
     
     def draw(self, screen):
-        """Draw the bullet as a rectangle"""
+        """Draw the bullet using image"""
         if self.active:
-            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+            if missile_img:
+                screen.blit(missile_img, (self.x, self.y))
+            else:
+                # Fallback to rectangle if image doesn't load
+                pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
 
 # Create gun instance
 gun = Gun()
 
 # Asteroid class
 class Asteroid:
-    def __init__(self, x, y):
-        self.width = ASTEROID_WIDTH
-        self.height = ASTEROID_HEIGHT
+    def __init__(self, x, y, size_index):
+        self.size_data = ASTEROID_SIZES[size_index]
+        self.width = self.size_data["width"]
+        self.height = self.size_data["height"]
         self.x = x
         self.y = y
-        self.speed = ASTEROID_SPEED
+        self.speed = self.size_data["speed"]
+        self.points = self.size_data["points"]
         self.color = ASTEROID_COLOR
         self.active = True
+        self.size_index = size_index
+        
+        # Select appropriate image based on size
+        if size_index == 0:  # Small
+            self.image = rock_small_img
+        elif size_index == 1:  # Medium
+            self.image = rock_normal_img
+        else:  # Large
+            self.image = rock_big_img
+        
+        # Scale image to match size if needed
+        if self.image:
+            self.image = pygame.transform.scale(self.image, (self.width, self.height))
     
     def update(self):
         """Move asteroid down the screen"""
@@ -128,9 +184,13 @@ class Asteroid:
             self.active = False
     
     def draw(self, screen):
-        """Draw the asteroid as a rectangle"""
+        """Draw the asteroid using image"""
         if self.active:
-            pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
+            if self.image:
+                screen.blit(self.image, (self.x, self.y))
+            else:
+                # Fallback to rectangle if image doesn't load
+                pygame.draw.rect(screen, self.color, (self.x, self.y, self.width, self.height))
     
     def get_rect(self):
         """Get pygame.Rect for collision detection"""
@@ -138,9 +198,14 @@ class Asteroid:
 
 # Asteroid spawner function
 def spawn_asteroid():
-    """Spawn an asteroid at a random x position at the top of the screen"""
-    x = random.randint(0, SCREEN_WIDTH - ASTEROID_WIDTH)
-    return Asteroid(x, -ASTEROID_HEIGHT)
+    """Spawn an asteroid at a random x position at the top of the screen with random size"""
+    # Choose random size (0=small, 1=medium, 2=large)
+    size_index = random.randint(0, 2)
+    asteroid_width = ASTEROID_SIZES[size_index]["width"]
+    asteroid_height = ASTEROID_SIZES[size_index]["height"]
+    
+    x = random.randint(0, SCREEN_WIDTH - asteroid_width)
+    return Asteroid(x, -asteroid_height, size_index)
 
 # Collision detection function
 def check_bullet_asteroid_collision(bullet, asteroid):
@@ -232,6 +297,7 @@ while running:
     if not game_over:
         # Handle continuous keyboard input
         keys = pygame.key.get_pressed()
+        gun.is_moving = False  # Reset movement state first
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             gun.move_left()
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
@@ -281,9 +347,9 @@ while running:
                     asteroid.active = False
                     bullets.remove(bullet)
                     asteroids.remove(asteroid)
-                    # Increase score
-                    score += POINTS_PER_ASTEROID
-                    print(f"Asteroid destroyed! Score: {score}")
+                    # Increase score based on asteroid size
+                    score += asteroid.points
+                    print(f"Asteroid destroyed! Points: {asteroid.points}, Total Score: {score}")
                     break  # Break inner loop since bullet is destroyed
         
         # Draw UI elements
