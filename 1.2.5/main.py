@@ -22,7 +22,7 @@ YELLOW = (255, 255, 0)
 # Gun/Player constants
 GUN_WIDTH = 60
 GUN_HEIGHT = 40
-GUN_SPEED = 10
+GUN_SPEED = 6.7
 
 # Bullet constants
 BULLET_WIDTH = 5
